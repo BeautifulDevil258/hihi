@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 using System.Drawing;
-using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,9 +14,8 @@ namespace dentistry6boy
 {
     public partial class fAdmin : Form
     {
-        SqlConnection sqlCon = null;
-        string strCon = ConfigurationManager.ConnectionStrings["QLNK"].ConnectionString.ToString();
-
+        static string strCon = @"Data Source=TR0NG\MSSQLSERVER01;Initial Catalog=Dentistryy;Integrated Security=True;";
+        SqlConnection sqlCon = new SqlConnection(strCon);
         public fAdmin()
         {
             InitializeComponent();
@@ -26,14 +23,7 @@ namespace dentistry6boy
         private void Hien_thi_DV()
         {
 
-            if (sqlCon == null)
-            {
-                sqlCon = new SqlConnection(strCon);
-            }
-            if (sqlCon.State == ConnectionState.Closed)
-            {
-                sqlCon.Open();
-            }
+            sqlCon.Open();
             SqlDataAdapter Da = new SqlDataAdapter("SELECT * FROM Services;", sqlCon);
             DataTable Dt = new DataTable();
             Da.Fill(Dt);
@@ -41,38 +31,11 @@ namespace dentistry6boy
             sqlCon.Close();
 
         }
-        private void DGV_dv_CellClick(object sender, DataGridViewCellEventArgs e)
-        {
-            // Kiểm tra xem có hàng nào được chọn không
-            if (e.RowIndex >= 0)
-            {
-                // Lấy dữ liệu từ hàng được chọn
-                DataGridViewRow row = DGV_dv.Rows[e.RowIndex];
-
-                // Hiển thị dữ liệu từ hàng được chọn vào các TextBox tương ứng
-                txtServiceName.Text = row.Cells["ServiceName"].Value.ToString();
-                txtPrice.Text = row.Cells["Price"].Value.ToString();
-            }
-        }
-
-        private void label1_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void txtMaNV_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
         private void fAdmin_Load(object sender, EventArgs e)
         {
             Hien_thi_DV();
-
-            // Gán sự kiện CellClick cho DataGridView
-            DGV_dv.CellClick += new DataGridViewCellEventHandler(DGV_dv_CellClick);
+            Hien_thi_Medicines();
         }
-
 
         private void btnThemDV_Click(object sender, EventArgs e)
         {
@@ -86,14 +49,6 @@ namespace dentistry6boy
                     MessageBox.Show("Vui lòng nhập đầy đủ thông tin dịch vụ.");
                     return; // Không thực hiện các thao tác thêm nữa
                 }
-
-                // Kiểm tra giá trị nhập vào cho giá là một số hợp lệ
-                if (!decimal.TryParse(txtPrice.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal price))
-                {
-                    MessageBox.Show("Giá phải là một số.");
-                    return; // Không thực hiện các thao tác thêm nữa
-                }
-
                 using (SqlConnection sqlCon = new SqlConnection(strCon))
                 {
                     sqlCon.Open();
@@ -105,7 +60,7 @@ namespace dentistry6boy
                         string insertQuery = "INSERT INTO Services (ServiceName, Price) VALUES (@ServiceName, @Price);";
                         SqlCommand cmdAddService = new SqlCommand(insertQuery, sqlCon, transaction);
                         cmdAddService.Parameters.AddWithValue("@ServiceName", txtServiceName.Text);
-                        cmdAddService.Parameters.AddWithValue("@Price", price);
+                        cmdAddService.Parameters.AddWithValue("@Price", txtPrice.Text);
 
                         // Thực thi câu lệnh thêm dịch vụ
                         cmdAddService.ExecuteNonQuery();
@@ -126,6 +81,7 @@ namespace dentistry6boy
                         MessageBox.Show("Đã xảy ra lỗi khi thêm dịch vụ: " + ex.Message);
                     }
                 }
+
             }
             catch (Exception ex)
             {
@@ -134,167 +90,266 @@ namespace dentistry6boy
             }
         }
 
-        // Code cho btnSuaDV_Click
-        private void btnSuaDV_Click(object sender, EventArgs e)
+        //PHẦN CỦA TUI
+        // phần hiển thị thuốc
+        private void Hien_thi_Medicines()
         {
-            try
+
+            sqlCon.Open();
+            SqlDataAdapter Da = new SqlDataAdapter("SELECT * FROM Medicines;", sqlCon);
+            DataTable Dt = new DataTable();             //tạo database 'dt' lưu dữ liệu từ kết quả truy vấn
+            Da.Fill(Dt);                               //Fill để điền dlieu truy vấn  vào "Dt"  
+            DGV_Medicine.DataSource = Dt;              //gán dt làm nguồn dữ liệu cho DGV_.... thông qua data source
+            sqlCon.Close();                           
+
+        }
+        // Thêm Thuốc
+        private void btnAddthuoc_Click(object sender, EventArgs e)
+        {
+            // Kiểm tra xem các trường dữ liệu có được điền đầy đủ không
+            StringBuilder missingFields = new StringBuilder();
+            if (string.IsNullOrWhiteSpace(txtMedicineName.Text))
+                missingFields.Append("Tên thuốc\n");
+            if (string.IsNullOrWhiteSpace(txtUnit.Text))
+                missingFields.Append("Đơn vị\n");
+            if (string.IsNullOrWhiteSpace(txtDescription.Text))
+                missingFields.Append("Mô tả\n");
+            if (string.IsNullOrWhiteSpace(txtPriceMedicine.Text))
+                missingFields.Append("Giá\n");
+            if (string.IsNullOrWhiteSpace(txtQuantity.Text))
+                missingFields.Append("Số lượng\n");
+
+            if (missingFields.Length > 0) //ktra chuỗi miss....
             {
-                // Kiểm tra xem dữ liệu đã được chọn từ DataGridView chưa
-                if (DGV_dv.SelectedRows.Count == 0)
-                {
-                    MessageBox.Show("Vui lòng chọn dịch vụ cần sửa từ danh sách.");
-                    return; // Không thực hiện các thao tác sửa nữa
-                }
+                MessageBox.Show($"Vui lòng điền đầy đủ thông tin cho các trường sau:\n{missingFields}", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
-                // Lấy ID của dịch vụ được chọn
-                int selectedServiceID = Convert.ToInt32(DGV_dv.SelectedRows[0].Cells["ServiceID"].Value);
-
-                // Kiểm tra xem các trường thông tin cần thiết đã được nhập chưa
-                if (string.IsNullOrWhiteSpace(txtServiceName.Text) ||
-                    string.IsNullOrWhiteSpace(txtPrice.Text))
+            // Mở kết nối đến cơ sở dữ liệu
+            using (SqlConnection connection = new SqlConnection(strCon))
+            {
+                try
                 {
-                    // Hiển thị thông báo yêu cầu nhập đầy đủ thông tin
-                    MessageBox.Show("Vui lòng nhập đầy đủ thông tin dịch vụ.");
-                    return; // Không thực hiện các thao tác sửa nữa
-                }
+                    connection.Open();
 
-                // Kiểm tra giá trị nhập vào cho giá là một số hợp lệ
-                if (!decimal.TryParse(txtPrice.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal price))
-                {
-                    MessageBox.Show("Giá phải là một số.");
-                    return; // Không thực hiện các thao tác sửa nữa
+                    // Tạo câu lệnh SQL để thêm dữ liệu
+                    string query = "INSERT INTO Medicines (Name, Unit, Description, Price, Quantity, Import_Date, Manufacture_Date, Expiry_Date) VALUES (@Name, @Unit, @Description, @Price, @Quantity, @ImportDate, @ManufactureDate, @ExpiryDate)";
+
+                    SqlCommand command = new SqlCommand(query, connection);
+
+                    // Gán giá trị từ các TextBox và DateTimePicker vào tham số của câu lệnh SQL
+                    command.Parameters.AddWithValue("@Name", txtMedicineName.Text); 
+                    command.Parameters.AddWithValue("@Unit", txtUnit.Text);
+                    command.Parameters.AddWithValue("@Description", txtDescription.Text);
+                    command.Parameters.AddWithValue("@Price", Convert.ToDouble(txtPriceMedicine.Text));
+                    command.Parameters.AddWithValue("@Quantity", Convert.ToInt32(txtQuantity.Text));
+                    command.Parameters.AddWithValue("@ImportDate", dateTimePickerManufacture.Value);
+                    command.Parameters.AddWithValue("@ManufactureDate", dateTimePickerManufacture.Value);
+                    command.Parameters.AddWithValue("@ExpiryDate", dateTimePickerExpiry.Value); //thêm tham số...,giá trị nội dung textbox
+
+                    // Thực thi câu lệnh SQL
+                    int rowsAffected = command.ExecuteNonQuery();
+
+                    if (rowsAffected > 0)
+                    {
+                        MessageBox.Show("Thêm thuốc thành công.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        // Xóa dữ liệu sau khi thêm thành công
+                        ClearInputs();
+                        Hien_thi_Medicines();
+                    }
+                    else
+                    {
+                        MessageBox.Show("Thêm thuốc thất bại.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                 }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Lỗi: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+        private void ClearInputs()
+        {
+            txtMedicineName.Clear();
+            txtUnit.Clear();
+            txtDescription.Clear();
+            txtPriceMedicine.Clear();
+            txtQuantity.Clear();
+            dateTimePickerManufacture.Value = DateTime.Now;
+            dateTimePickerManufacture.Value = DateTime.Now;
+            dateTimePickerExpiry.Value = DateTime.Now;
+        }
+
+
+        //Reset kho thuốc
+        private void btnReset_Click(object sender, EventArgs e)
+        {
+            ClearInputs();
+        }
+
+
+        // Chức năng Sửa
+        private void btnSuathuoc_Click(object sender, EventArgs e)
+        {
+            if (DGV_Medicine.SelectedRows.Count > 0)
+            {
+                int MedicineID = Convert.ToInt32(DGV_Medicine.SelectedRows[0].Cells["ID"].Value);
+                string updateMedicineQuery = @"
+            UPDATE Medicines 
+            SET Name = @Name, 
+                Unit = @Unit, 
+                Description = @Description, 
+                Price = @Price, 
+                Quantity = @Quantity, 
+                Import_Date = @ImportDate,
+                Manufacture_Date = @ManufactureDate,
+                Expiry_Date = @ExpiryDate 
+            WHERE ID = @ID;";
 
                 using (SqlConnection sqlCon = new SqlConnection(strCon))
                 {
                     sqlCon.Open();
                     SqlTransaction transaction = sqlCon.BeginTransaction();
-
                     try
                     {
-                        // Cập nhật thông tin dịch vụ trong bảng "Services"
-                        string updateQuery = "UPDATE Services SET ServiceName = @ServiceName, Price = @Price WHERE ServiceID = @ServiceID;";
-                        SqlCommand cmdUpdateService = new SqlCommand(updateQuery, sqlCon, transaction);
-                        cmdUpdateService.Parameters.AddWithValue("@ServiceID", selectedServiceID);
-                        cmdUpdateService.Parameters.AddWithValue("@ServiceName", txtServiceName.Text);
-                        cmdUpdateService.Parameters.AddWithValue("@Price", price);
-
-                        // Thực thi câu lệnh cập nhật dịch vụ
-                        int rowsAffected = cmdUpdateService.ExecuteNonQuery();
-
-                        if (rowsAffected > 0)
-                        {
-                            // Commit transaction nếu mọi thứ thành công
-                            transaction.Commit();
-
-                            // Thông báo thành công
-                            MessageBox.Show("Sửa thông tin dịch vụ thành công!");
-                            Hien_thi_DV();
-                        }
-                        else
-                        {
-                            // Rollback transaction nếu không có hàng nào được cập nhật
-                            transaction.Rollback();
-
-                            // Hiển thị thông báo lỗi
-                            MessageBox.Show("Không có dữ liệu nào được sửa.");
-                        }
+                        SqlCommand cmdUpdateMedicine = new SqlCommand(updateMedicineQuery, sqlCon, transaction);
+                        cmdUpdateMedicine.Parameters.AddWithValue("@ID", MedicineID);
+                        cmdUpdateMedicine.Parameters.AddWithValue("@Name", txtMedicineName.Text);
+                        cmdUpdateMedicine.Parameters.AddWithValue("@Unit", txtUnit.Text);
+                        cmdUpdateMedicine.Parameters.AddWithValue("@Description", txtDescription.Text);
+                        cmdUpdateMedicine.Parameters.AddWithValue("@Price", Convert.ToDouble(txtPriceMedicine.Text));
+                        cmdUpdateMedicine.Parameters.AddWithValue("@Quantity", Convert.ToInt32(txtQuantity.Text));
+                        cmdUpdateMedicine.Parameters.AddWithValue("@ImportDate", dateTimePickerImport.Text);
+                        cmdUpdateMedicine.Parameters.AddWithValue("@ManufactureDate", dateTimePickerManufacture.Text);
+                        cmdUpdateMedicine.Parameters.AddWithValue("@ExpiryDate", dateTimePickerExpiry.Value);
+                        cmdUpdateMedicine.ExecuteNonQuery();
+                        transaction.Commit();
+                        MessageBox.Show("Thông tin thuốc đã được cập nhật thành công.");
+                        Hien_thi_Medicines();
                     }
                     catch (Exception ex)
                     {
-                        // Rollback transaction nếu có lỗi xảy ra
                         transaction.Rollback();
-
-                        // Hiển thị thông báo lỗi
-                        MessageBox.Show("Đã xảy ra lỗi khi sửa thông tin dịch vụ: " + ex.Message);
+                        MessageBox.Show("Đã xảy ra lỗi: " + ex.Message);
                     }
                 }
             }
-            catch (Exception ex)
+            else
             {
-                // Hiển thị thông báo lỗi kết nối đến cơ sở dữ liệu
-                MessageBox.Show("Đã xảy ra lỗi khi kết nối đến cơ sở dữ liệu: " + ex.Message);
+                MessageBox.Show("Vui lòng chọn một hàng để cập nhật.");
+            }
+        }
+        //Lấy dữ liệu từ DatagridView để hiện lên textbox
+        private void DGV_Medicine_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0)
+            {
+                txtMedicineName.Text = DGV_Medicine.CurrentRow.Cells[1].Value.ToString();
+                txtDescription.Text = DGV_Medicine.CurrentRow.Cells[2].Value.ToString();
+                txtUnit.Text = DGV_Medicine.CurrentRow.Cells[3].Value.ToString();
+                txtPriceMedicine.Text = DGV_Medicine.CurrentRow.Cells[4].Value.ToString();
+                txtQuantity.Text = DGV_Medicine.CurrentRow.Cells[5].Value.ToString();
+                string Import_DateString = DGV_Medicine.CurrentRow.Cells[6].Value.ToString();
+                DateTime Import_Date;
+                if (DateTime.TryParse(Import_DateString, out Import_Date))
+                {
+                    dateTimePickerImport.Value = Import_Date;
+                }
+                string Manufacture_DateString = DGV_Medicine.CurrentRow.Cells[7].Value.ToString();
+                DateTime Manufacture_Date;
+                if (DateTime.TryParse(Manufacture_DateString, out Manufacture_Date))
+                {
+                    dateTimePickerManufacture.Value = Manufacture_Date;
+                }
+                string Expiry_DateString = DGV_Medicine.CurrentRow.Cells[8].Value.ToString();
+                DateTime Expiry_Date;
+                if (DateTime.TryParse(Expiry_DateString, out Expiry_Date))
+                {
+                    dateTimePickerExpiry.Value = Expiry_Date;
+                }
             }
         }
 
-        private void btnXoaDV_Click(object sender, EventArgs e)
+
+
+        //Xóa thuốc
+        SqlTransaction transaction = null; // Khai báo biến transaction ở mức phạm vi toàn cục
+        private object cmdDeleteMedicine;
+
+        private void btnXoathuoc_Click(object sender, EventArgs e)
         {
-            try
+
+            // Kiểm tra xem người dùng đã chọn một hàng trong DataGridView chưa
+            if (DGV_Medicine.SelectedRows.Count > 0)
             {
-                // Kiểm tra xem dữ liệu đã được chọn từ DataGridView chưa
-                if (DGV_dv.SelectedRows.Count == 0)
-                {
-                    MessageBox.Show("Vui lòng chọn dịch vụ cần xóa từ danh sách.");
-                    return; // Không thực hiện các thao tác xóa nữa
-                }
+                // Lấy ID của bệnh nhân từ hàng được chọn trong DataGridView
+                int medicineID = Convert.ToInt32(DGV_Medicine.SelectedRows[0].Cells["ID"].Value);
 
-                // Lấy ID của dịch vụ được chọn
-                int selectedServiceID = Convert.ToInt32(DGV_dv.SelectedRows[0].Cells["ServiceID"].Value);
-
-                DialogResult result = MessageBox.Show("Bạn có chắc chắn muốn xóa dịch vụ này?", "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-
+                // Hiển thị hộp thoại xác nhận xóa
+                DialogResult result = MessageBox.Show("Bạn có chắc chắn muốn xóa thuốc này?", "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (result == DialogResult.Yes)
                 {
+                    // Chuẩn bị câu lệnh SQL để xóa thông thuốc
+                    string deleteMedicineQuery = "DELETE FROM Medicines WHERE ID = @ID";
+
+                    // Mở kết nối đến cơ sở dữ liệu và thực thi các câu lệnh SQL trong một giao dịch
                     using (SqlConnection sqlCon = new SqlConnection(strCon))
                     {
-                        sqlCon.Open();
-                        SqlTransaction transaction = sqlCon.BeginTransaction();
-
                         try
                         {
-                            // Xóa thông tin dịch vụ trong bảng "Services"
-                            string deleteQuery = "DELETE FROM Services WHERE ServiceID = @ServiceID;";
-                            SqlCommand cmdDeleteService = new SqlCommand(deleteQuery, sqlCon, transaction);
-                            cmdDeleteService.Parameters.AddWithValue("@ServiceID", selectedServiceID);
+                            sqlCon.Open();
+                            SqlTransaction transaction = sqlCon.BeginTransaction();
 
-                            // Thực thi câu lệnh xóa dịch vụ
-                            int rowsAffected = cmdDeleteService.ExecuteNonQuery();
+                            // Xóa thông tin thuốc
+                            SqlCommand cmdDeleteMedicine = new SqlCommand(deleteMedicineQuery, sqlCon, transaction);
+                            cmdDeleteMedicine.Parameters.AddWithValue("@ID", medicineID);
+                            cmdDeleteMedicine.ExecuteNonQuery();
 
-                            if (rowsAffected > 0)
-                            {
-                                // Commit transaction nếu mọi thứ thành công
-                                transaction.Commit();
+                            transaction.Commit();
 
-                                // Thông báo thành công
-                                MessageBox.Show("Xóa dịch vụ thành công!");
-                                Hien_thi_DV();
-                            }
-                            else
-                            {
-                                // Rollback transaction nếu không có hàng nào bị xóa
-                                transaction.Rollback();
-
-                                // Hiển thị thông báo lỗi
-                                MessageBox.Show("Không có dữ liệu nào bị xóa.");
-                            }
+                            // Thông báo xóa thành công và làm mới DataGridView
+                            MessageBox.Show("Thuốc đã được xóa thành công!");
+                            Hien_thi_Medicines();
                         }
                         catch (Exception ex)
                         {
                             // Rollback transaction nếu có lỗi xảy ra
                             transaction.Rollback();
-
-                            // Hiển thị thông báo lỗi
-                            MessageBox.Show("Đã xảy ra lỗi khi xóa dịch vụ: " + ex.Message);
+                            MessageBox.Show("Đã xảy ra lỗi: " + ex.Message);
                         }
                     }
                 }
             }
-            catch (Exception ex)
+            else
             {
-                // Hiển thị thông báo lỗi kết nối đến cơ sở dữ liệu
-                MessageBox.Show("Đã xảy ra lỗi khi kết nối đến cơ sở dữ liệu: " + ex.Message);
+                MessageBox.Show("Vui lòng chọn một hàng để xóa.");
             }
         }
 
-        private void btnResetBN_Click(object sender, EventArgs e)
+        private void btntimkiemthuoc_Click(object sender, EventArgs e)
         {
-            txtServiceName.Text = "";
-            txtPrice.Text = "";
-        }
-
-        private void btnRefDV_Click(object sender, EventArgs e)
-        {
-            Hien_thi_DV();
+            if (txtSearchMedicine.Text == "")
+            {
+                MessageBox.Show("Nhập từ khoá cần tìm");
+            }
+            else
+            {
+                try
+                {
+                    sqlCon.Open();
+                    SqlDataAdapter Da = new SqlDataAdapter("SELECT * FROM Medicines WHERE Name LIKE '%' + @searchTerm + '%'", sqlCon);
+                    Da.SelectCommand.Parameters.AddWithValue("@searchTerm", txtSearchMedicine.Text);
+                    DataTable Dt = new DataTable();
+                    Da.Fill(Dt);
+                    DGV_Medicine.DataSource = Dt;
+                    sqlCon.Close();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Lỗi: " + ex.Message);
+                }
+            }
         }
     }
-}
+    }
+
